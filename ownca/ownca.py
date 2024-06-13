@@ -1105,7 +1105,7 @@ class CertificateAuthority:
 
         self._update(ca_cert)
 
-    def sign_csr(self, csr, csr_public_key, maximum_days=825):
+    def sign_csr(self, csr, csr_public_key, maximum_days=825, key_cert_sign=False, crl_sign=False):
         """
         Signs an Certificate Sigining Request and generates the certificates.
 
@@ -1137,7 +1137,10 @@ class CertificateAuthority:
         )
 
         certificate = ca_sign_csr(
-            self.cert, self.key, csr, csr_public_key, maximum_days=maximum_days
+            self.cert, self.key, csr, csr_public_key,
+            maximum_days=maximum_days,
+            key_cert_sign=key_cert_sign,
+            crl_sign=crl_sign
         )
 
         os.mkdir(host_cert_dir)

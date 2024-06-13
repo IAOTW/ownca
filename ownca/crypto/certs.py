@@ -239,7 +239,7 @@ def issue_csr(key=None, common_name=None, dns_names=None, oids=None, ca=True):
     return _valid_csr(csr)
 
 
-def ca_sign_csr(ca_cert, ca_key, csr, public_key, maximum_days=None, ca=True):
+def ca_sign_csr(ca_cert, ca_key, csr, public_key, maximum_days=None, ca=True, key_cert_sign=False, crl_sign=False):
     """
     Sign a Certificate Signing Request
 
@@ -283,8 +283,8 @@ def ca_sign_csr(ca_cert, ca_key, csr, public_key, maximum_days=None, ca=True):
             key_agreement=False,
             encipher_only=False,
             decipher_only=False,
-            key_cert_sign=False,
-            crl_sign=False,
+            key_cert_sign=key_cert_sign,
+            crl_sign=crl_sign,
         ),
         critical=True,
     )
