@@ -10,6 +10,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID
 import datetime
 import uuid
+import ipaddress
 
 one_day = datetime.timedelta(1, 0, 0)
 
@@ -51,44 +52,48 @@ def _valid_csr(csr):
         return None
 
 
-def _add_dns_as_subjectaltname(builder, c_name, dns_names):
+def _add_subjectaltname(builder, c_name, dns_names, ip_addresses):
     """
-    Add DNS Name (``cryptography.x509.DNSName``) and Subject Alternative
-    Name (``cryptography.x509.SubjectAlternativeName``) to the certificate
-    object.
+    Add DNS Name (`cryptography.x509.DNSName`) and IP Address
+    (`cryptography.x509.IPAddress`) to Subject Alternative Name
+    (`cryptography.x509.SubjectAlternativeName`) to the certificate object.
 
-    :param builder: the initiated builder ``x509.CertificateBuilder()``.
+    :param builder: the initiated builder `x509.CertificateBuilder()`.
     :type builder: object, required.
     :param c_name: common name.
     :type c_name: str, required.
+    :param dns_names: list of DNS names to include in SAN.
+    :type dns_names: list of strings.
+    :param ip_addresses: list of IP addresses to include in SAN.
+    :type ip_addresses: list of strings.
 
-    :return: builder object ``x509.CertificateBuilder()``
+    :return: builder object `x509.CertificateBuilder()`
     """
+    san_entries = []
 
-    if dns_names is not None:
-
-        if type(dns_names) is not list:
+    if dns_names:
+        if not isinstance(dns_names, list):
             raise TypeError("dns_names require a list of strings.")
+        if all(isinstance(item, str) for item in dns_names):
+            san_entries.extend([x509.DNSName(dns_name) for dns_name in dns_names])
+        else:
+            raise TypeError("All DNS Names must be string values.")
 
-        if len(dns_names) != 0:
-            if all(isinstance(item, str) for item in dns_names):
-                x509_dns_names = []
-                for dns_name in dns_names:
-                    x509_dns_names.append(x509.DNSName(dns_name))
+    if ip_addresses:
+        if not isinstance(ip_addresses, list):
+            raise TypeError("ip_addresses require a list of strings.")
+        if all(isinstance(item, str) for item in ip_addresses):
+            san_entries.extend([x509.IPAddress(ipaddress.IPv4Address(ip_address)) for ip_address in ip_addresses])
+        else:
+            raise TypeError("All IP Addresses must be string values.")
 
-                builder = builder.add_extension(
-                    x509.SubjectAlternativeName(x509_dns_names),
-                    critical=False,
-                )
+    if not san_entries:
+        san_entries.append(x509.DNSName(c_name))
 
-            else:
-                raise TypeError("All DNS Names must to be string values.")
-
-    else:
-        builder = builder.add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(c_name)]),
-            critical=False,
-        )
+    builder = builder.add_extension(
+        x509.SubjectAlternativeName(san_entries),
+        critical=False,
+    )
 
     return builder
 
@@ -123,21 +128,22 @@ def issue_cert(
     ca_common_name=None,
     common_name=None,
     dns_names=None,
+    ip_addresses=None,
     host=False,
     ca=True,
 ):
     """
     Issue a new certificate
 
-    :param oids: list of OID Objects (``cryptography.x509.oid.NameOID``)
-        or None. See ``ownca.format_oids``.
+    :param oids: list of OID Objects (`cryptography.x509.oid.NameOID`)
+        or None. See `ownca.format_oids`.
     :type oids: list, required.
     :param maximum_days: number of maximum days of certificate (expiration)
     :type maximum_days: int, required, min 1 max 825.
-    :param key: key object ``cryptography.hazmat.backends.openssl.rsa``
+    :param key: key object `cryptography.hazmat.backends.openssl.rsa`
     :type key: object, required.
     :param pem_public_key: PEM public key object
-        ``cryptography.hazmat.backends.openssl.rsa.public_key()``.
+        `cryptography.hazmat.backends.openssl.rsa.public_key()`.
     :type pem_public_key: object, required.
     :param ca_common_name: Certificate Authority Common Name when issuing cert.
     :type ca_common_name: string, optional.
@@ -145,16 +151,17 @@ def issue_cert(
     :type common_name: string, optional.
     :param dns_names: list of DNS names to the cert.
     :type dns_names: list of strings.
+    :param ip_addresses: list of IP addresses to the cert.
+    :type ip_addresses: list of strings.
     :param host: Issuing a host certificate.
     :type host: bool, default True.
     :param ca: Certificate is CA or not.
     :type ca: bool, default True.
 
     :return: certificate object
-    :rtype: ``cryptography.x509.Certificate``
+    :rtype: `cryptography.x509.Certificate`
     """
-
-    if maximum_days is None or 0 < maximum_days > 826:
+    if maximum_days is None or maximum_days < 1 or maximum_days > 825:
         raise ValueError("maximum_days is required: Minimum 1, Maximum 825")
 
     oids.append(x509.NameAttribute(NameOID.COMMON_NAME, common_name))
@@ -170,9 +177,7 @@ def issue_cert(
             )
         )
 
-        builder = _add_dns_as_subjectaltname(
-            builder, ca_common_name, dns_names
-        )
+        builder = _add_subjectaltname(builder, ca_common_name, dns_names, ip_addresses)
 
     else:
 
@@ -180,7 +185,7 @@ def issue_cert(
             x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
         )
 
-        builder = _add_dns_as_subjectaltname(builder, common_name, dns_names)
+        builder = _add_subjectaltname(builder, common_name, dns_names, ip_addresses)
 
     builder = builder.not_valid_before(datetime.datetime.today() - one_day)
     builder = builder.not_valid_after(
@@ -200,34 +205,34 @@ def issue_cert(
     return _valid_cert(certificate)
 
 
-def issue_csr(key=None, common_name=None, dns_names=None, oids=None, ca=True):
+def issue_csr(key=None, common_name=None, dns_names=None, ip_addresses=None, oids=None, ca=True):
     """
     Issue a new CSR (Certificate Signing Request)
 
-    :param key: key object ``cryptography.hazmat.backends.openssl.rsa``
+    :param key: key object `cryptography.hazmat.backends.openssl.rsa`
     :type key: object, required.
     :param common_name: Common Name when issuing Certificate Authority cert.
     :type common_name: string, optional.
     :param dns_names: list of DNS names to the cert.
     :type dns_names: list of strings.
-    :param oids: list of OID Objects (``cryptography.x509.oid.NameOID``)
-        or None. See ``ownca.format_oids``.
+    :param ip_addresses: list of IP addresses to the cert.
+    :type ip_addresses: list of strings.
+    :param oids: list of OID Objects (`cryptography.x509.oid.NameOID`)
+        or None. See `ownca.format_oids`.
     :type oids: list, required.
     :param ca: Certificate is CA or not.
     :type ca: bool, default True.
 
-    :return: certificate sigining request object
-    :rtype: ``cryptography.x509.CertificateSigningRequest``
-    :raises: ``TypeError``
+    :return: certificate signing request object
+    :rtype: `cryptography.x509.CertificateSigningRequest`
+    :raises: `TypeError`
     """
     csr_builder = x509.CertificateSigningRequestBuilder()
 
     oids.append(x509.NameAttribute(NameOID.COMMON_NAME, common_name))
     csr_builder = csr_builder.subject_name(x509.Name(oids))
 
-    csr_builder = _add_dns_as_subjectaltname(
-        csr_builder, common_name, dns_names
-    )
+    csr_builder = _add_subjectaltname(csr_builder, common_name, dns_names, ip_addresses)
 
     csr_builder = csr_builder.add_extension(
         x509.BasicConstraints(ca=ca, path_length=None), critical=False

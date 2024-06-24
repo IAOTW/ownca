@@ -289,12 +289,12 @@ def format_oids(oids_parameters):
 
 
 def load_cert_files(
-    common_name,
-    key_file,
-    public_key_file,
-    csr_file,
-    certificate_file,
-    crl_file,
+        common_name,
+        key_file,
+        public_key_file,
+        csr_file,
+        certificate_file,
+        crl_file,
 ):
     """Loads the certificate, keys and revoked list files from storage
 
@@ -451,12 +451,12 @@ class CertificateAuthority:
     """
 
     def __init__(
-        self,
-        ca_storage=None,
-        common_name=None,
-        intermediate=False,
-        maximum_days=825,
-        **kwargs,
+            self,
+            ca_storage=None,
+            common_name=None,
+            intermediate=False,
+            maximum_days=825,
+            **kwargs,
     ):
         """Constructor method"""
 
@@ -602,8 +602,8 @@ class CertificateAuthority:
             ``cryptography.hazmat.backends.openssl.x509.Certificate``
         """
         if (
-            self._certificate is None
-            and self.type == "Intermediate Certificate Authority"
+                self._certificate is None
+                and self.type == "Intermediate Certificate Authority"
         ):
             raise OwnCAIntermediate(
                 "Intermediate Certificate Authority has not a signed "
@@ -728,13 +728,13 @@ class CertificateAuthority:
         self._crl_bytes = cert_data.crl_bytes
 
     def initialize(
-        self,
-        common_name=None,
-        dns_names=None,
-        intermediate=False,
-        maximum_days=825,
-        public_exponent=65537,
-        key_size=2048,
+            self,
+            common_name=None,
+            dns_names=None,
+            intermediate=False,
+            maximum_days=825,
+            public_exponent=65537,
+            key_size=2048,
     ):
         """
         Initialize the Certificate Authority (CA)
@@ -869,15 +869,16 @@ class CertificateAuthority:
                 return cert_data
 
     def issue_certificate(
-        self,
-        hostname,
-        maximum_days=825,
-        common_name=None,
-        dns_names=None,
-        oids=None,
-        public_exponent=65537,
-        key_size=2048,
-        ca=True,
+            self,
+            hostname,
+            maximum_days=825,
+            common_name=None,
+            dns_names=None,
+            ip_addresses=None,
+            oids=None,
+            public_exponent=65537,
+            key_size=2048,
+            ca=True,
     ):
         """
         Issues a new certificate signed by the CA
@@ -890,6 +891,8 @@ class CertificateAuthority:
         :type common_name: str, optional
         :param dns_names: List of DNS names
         :type dns_names: list of strings, optional
+        :param ip_addresses: list of IP addresses to the cert.
+        :type ip_addresses: list of strings.
         :param oids: CA Object Identifiers (OIDs). The are typically seen
             in X.509 names.
             Allowed keys/values:
@@ -964,6 +967,7 @@ class CertificateAuthority:
                 key=key_data.key,
                 common_name=common_name,
                 dns_names=dns_names,
+                ip_addresses=ip_addresses,
                 oids=oids,
                 ca=ca,
             )

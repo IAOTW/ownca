@@ -8,10 +8,12 @@ CA_COMMON_NAME = "topsec.org"
 ICA_COMMON_NAME = "ica.topsec.org"
 CA_DNS_NAMES = ["www.topsec.org", "ca.topsec.org"]
 
+
 def save_certificate(cert, path):
     with open(path, "w") as cert_file:
         cert_file.write(cert.cert_bytes.decode())
         cert_file.close()
+
 
 def save_chain(certs, path):
     with open(path, "w") as chain_file:
@@ -19,12 +21,14 @@ def save_chain(certs, path):
             chain_file.write(cert.cert_bytes.decode())
         chain_file.close()
 
+
 def load_certificate(path):
     with open(path, "rb") as cert_file:
         cert_data = cert_file.read()
         cert = x509.load_pem_x509_certificate(cert_data)
         cert_file.close()
     return cert
+
 
 if __name__ == '__main__':
     # 创建根证书颁发机构
@@ -53,13 +57,15 @@ if __name__ == '__main__':
     #     dns_names=CA_DNS_NAMES,
     #     intermediate=True,
     # )
-
+    #
     # # 保存证书链
     # save_chain([ca, ica], f"{ICA_STORAGE}/chain.crt")
-
-    # 使用中间CA颁发证书
-    server = ica.issue_certificate('10.28.134.2')
-    client = ica.issue_certificate('localhost')
+    #
+    # # 使用中间CA颁发证书
+    # # 如果服务器使用 IP 地址进行访问，并且需要这些 IP 地址被客户端验证，则需要将 IP 地址作为 Subject Alternative Name (IP SANs)。
+    # # 否则，将DNS 名称作为dns SANs 即可了。
+    server = ica.issue_certificate('10.28.134.2', ip_addresses=['10.28.134.2'])
+    client = ica.issue_certificate('127.0.0.1')
 
     # 验证证书
     print("#######################")
@@ -96,13 +102,14 @@ if __name__ == '__main__':
         chain_cert.signature_hash_algorithm,
     )
     print("证书链验证成功")
-
+    ica.revoke_certificate('127.0.0.1')
     # 验证由中间CA签署的证书
-    for cert in [server.cert, client.cert]:
+    for cert in [server, client]:
+        print(cert.revoked)  # 需重新加载server，client
         ica.public_key.verify(
-            cert.signature,
-            cert.tbs_certificate_bytes,
+            cert.cert.signature,
+            cert.cert.tbs_certificate_bytes,
             padding.PKCS1v15(),
-            cert.signature_hash_algorithm,
+            cert.cert.signature_hash_algorithm,
         )
-        print(f"{cert.subject}证书由中间CA验证成功")
+        print(f"{cert.cert.subject}证书由中间CA验证成功")
